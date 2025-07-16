@@ -39,6 +39,18 @@ impl Loom {
         (x, y)
     }
 
+    fn toggle_roon(&mut self, x: f32, y: f32) {
+        let (x, y) = self.index(x, y);
+        let Some(row) = self.rows.get_mut(y) else {
+            return;
+        };
+        let roon = &mut row.cells[x].roon;
+        match roon {
+            Roon::Nop => *roon = Roon::Up,
+            _ => *roon = Roon::Nop,
+        }
+    }
+
     fn toggle_ball(&mut self, x: f32, y: f32) -> Result<(), ()> {
         let (x, y) = self.index(x, y);
         let Some(row) = self.rows.get_mut(y) else {
@@ -87,8 +99,43 @@ impl Loom {
 
             let mut x = x_start + WIDTH / 2.;
             for cell in row.cells.iter() {
-                draw_circle_lines(x, y - HEIGHT / 5., WIDTH / 6., 1.0, GRAY.with_alpha(0.5));
-                draw_circle_lines(x, y + HEIGHT / 5., WIDTH / 6., 1.0, GRAY.with_alpha(0.5));
+                const SCALE: f32 = 2.2;
+                const H: f32 = HEIGHT / SCALE;
+                const W: f32 = WIDTH / SCALE;
+                match cell.roon {
+                    Roon::Up => draw_triangle(vec2(x, y - H), vec2(x - W, y), vec2(x + W, y), LIME),
+                    Roon::Down => {
+                        draw_triangle(vec2(x, y + H), vec2(x - W, y), vec2(x + W, y), LIME)
+                    }
+                    Roon::Left => draw_triangle(
+                        vec2(x + W, y - H),
+                        vec2(x - W, y),
+                        vec2(x + W, y + H),
+                        ORANGE,
+                    ),
+                    Roon::Right => draw_triangle(
+                        vec2(x - W, y - H),
+                        vec2(x + W, y),
+                        vec2(x - W, y + H),
+                        ORANGE,
+                    ),
+                    Roon::Nop => {
+                        draw_circle_lines(
+                            x,
+                            y - HEIGHT / 5.,
+                            WIDTH / 6.,
+                            1.0,
+                            GRAY.with_alpha(0.5),
+                        );
+                        draw_circle_lines(
+                            x,
+                            y + HEIGHT / 5.,
+                            WIDTH / 6.,
+                            1.0,
+                            GRAY.with_alpha(0.5),
+                        );
+                    }
+                }
                 x += WIDTH;
             }
 
@@ -180,6 +227,9 @@ async fn main() {
                     }
                 });
             }
+        } else if is_mouse_button_pressed(MouseButton::Right) {
+            let (x, y) = mouse_position();
+            grid.toggle_roon(x - offset_x, y - offset_y);
         }
 
         grid.draw(offset_x, offset_y);
