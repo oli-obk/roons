@@ -50,9 +50,11 @@ async fn main() {
         .unwrap_or_default();
 
     let height = 20;
-    set_window_size(33 * height, 33 * height);
+    let width = 10;
+    set_window_size(33 * width, 33 * height);
     prevent_quit();
     let height = height as f32;
+    let width = width as f32;
 
     let mut last_tick = get_time();
 
@@ -69,29 +71,36 @@ async fn main() {
 
         let mut active = grid.active;
         let highlight = color_u8!(0, 0, 255, 50);
-        let end = height * (grid.rows.len() as f32 + 0.5);
-        let start = height / 2.;
+        let y_end = height * (grid.rows.len() as f32 + 0.5);
+        let y_start = height / 2.;
         let mut y = height;
 
-        let mut x = start;
+        let x_end = width * (grid.rows[0].cells.len() as f32 + 0.5);
+        let x_start = width / 2.;
+
+        let mut x = x_start;
         for _ in 0..=32 {
-            draw_line(x, start, x, end, 1., GRAY);
-            x += height;
+            draw_line(x, y_start, x, y_end, 0.5, GRAY);
+            x += width;
         }
 
         for row in grid.rows.iter() {
-            draw_line(start, y - start, end, y - start, 1., GRAY);
+            draw_line(x_start, y - y_start, x_end, y - y_start, 0.5, GRAY);
             if !active {
-                draw_line(start, y, end, y, height - 2., highlight);
+                draw_line(x_start, y, x_end, y, height - 2., highlight);
             }
 
-            let mut x = start;
-            for cell in row.cells.iter() {}
+            let mut x = x_start + width / 2.;
+            for cell in row.cells.iter() {
+                draw_circle_lines(x, y - height / 5., width / 6., 1.0, GRAY.with_alpha(0.5));
+                draw_circle_lines(x, y + height / 5., width / 6., 1.0, GRAY.with_alpha(0.5));
+                x += width;
+            }
 
             active = !active;
             y += height;
         }
-        draw_line(start, y - start, end, y - start, 1., GRAY);
+        draw_line(x_start, y - y_start, x_end, y - y_start, 1., GRAY);
 
         next_frame().await
     }
