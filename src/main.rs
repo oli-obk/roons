@@ -1,4 +1,10 @@
-use macroquad::{miniquad::window::set_window_size, prelude::*};
+use macroquad::{
+    miniquad::window::set_window_size,
+    prelude::{
+        coroutines::{start_coroutine, stop_coroutine, wait_seconds},
+        *,
+    },
+};
 use serde::{Deserialize, Serialize};
 
 enum Mode {
@@ -33,19 +39,30 @@ impl Loom {
         (x, y)
     }
 
-    fn insert_ball(&mut self, x: f32, y: f32) {
+    fn toggle_ball(&mut self, x: f32, y: f32) -> Result<(), ()> {
         let (x, y) = self.index(x, y);
         let Some(row) = self.rows.get_mut(y) else {
-            return;
+            return Ok(());
         };
-        // Balls are two cells wide, so we need to check that we don't collide with an existing ball left of us or right of us
-        if row.cells[x.saturating_sub(1)..(x + 1).min(row.cells.len())]
-            .iter()
-            .any(|cell| cell.ball)
+        // Remove ball if there's already one there
+        if row.cells[x].ball {
+            row.cells[x].ball = false;
+            return Ok(());
+        }
+        if let Some(x) = x.checked_sub(1)
+            && row.cells[x].ball
         {
-            return;
-        };
+            row.cells[x].ball = false;
+            return Ok(());
+        }
+        // Balls are two cells wide, so we need to check that we don't collide with an existing ball right of us
+        if let Some(cell) = row.cells.get(x + 1)
+            && cell.ball
+        {
+            return Err(());
+        }
         row.cells[x].ball = true;
+        Ok(())
     }
 
     fn draw(&self, x_start: f32, y_start: f32) {
@@ -141,7 +158,28 @@ async fn main() {
 
         if is_mouse_button_pressed(MouseButton::Left) {
             let (x, y) = mouse_position();
-            grid.insert_ball(x - offset_x, y - offset_y);
+            if grid.toggle_ball(x - offset_x, y - offset_y).is_err() {
+                let (x, y) = grid.index(x - offset_x, y - offset_y);
+                let x = x + 2;
+                let x = x as f32 * WIDTH + offset_x;
+                let y = y as f32 * HEIGHT + HEIGHT;
+                start_coroutine(async move {
+                    // flash twice
+                    for _ in 0..2 {
+                        for i in -7..=7 {
+                            let alpha = 1.0 / ((i as f32).abs() + 1.0);
+                            let c = start_coroutine(async move {
+                                loop {
+                                    draw_circle(x, y, WIDTH, YELLOW.with_alpha(alpha));
+                                    next_frame().await;
+                                }
+                            });
+                            wait_seconds(0.05).await;
+                            stop_coroutine(c)
+                        }
+                    }
+                });
+            }
         }
 
         grid.draw(offset_x, offset_y);
